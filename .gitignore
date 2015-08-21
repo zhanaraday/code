@@ -1,7 +1,6 @@
-
-libname lib 'e:\Dissertation\SAS DATA from HARD\20150815';
-libname wk 'E:\Dissertation\SAS DATA from HARD\20150813 - Copy\algorithm';
-%INCLUDE 'E:\Dissertation\SAS DATA from HARD\20150813 - Copy\algorithm\mrob_newdev.sas' / lrecl=500;
+libname lib1 'F:\Zhanar TAQ';
+libname lib2 'E:\Dissertation\SAS DATA from HARD';
+libname lib 'e:\Dissertation\SAS DATA from HARD\20150821';
 run;
 
 data v_mydata/view=v_mydata;
@@ -13,7 +12,9 @@ run;
 
 /*Download Data*/
 data Qstat2002;
-set lib.Qstats_2002 (drop= QuotedSpread_Dollar QuotedSpread_Percent TotalBidDepth_Share TotalOfrDepth_Share price_range sumtime wMaxBidDepth_Dollar wMaxBidDepth_Share wMaxOfrDepth_Dollar wMaxOfrDepth_Share wTotalBidDepth_Dollar wTotalBidDepth_Share wTotalOfrDepth_Dollar wTotalOfrDepth_Share);
+set lib.Qstats_2002 (drop= QuotedSpread_Dollar QuotedSpread_Percent TotalBidDepth_Share TotalOfrDepth_Share 
+price_range sumtime wMaxBidDepth_Dollar wMaxBidDepth_Share wMaxOfrDepth_Dollar wMaxOfrDepth_Share wTotalBidDepth_Dollar 
+ wTotalOfrDepth_Dollar );
 where DATE between '02DEC2002'd and '31DEC2002'd; 
 run;
 
@@ -45,7 +46,9 @@ run;
 /***REPEAT FOR 2003***/
 /*Download Data*/
 data Qstat2003;
-set lib.Qstats_2003 (drop= QuotedSpread_Dollar QuotedSpread_Percent TotalBidDepth_Share TotalOfrDepth_Share price_range sumtime wMaxBidDepth_Dollar wMaxBidDepth_Share wMaxOfrDepth_Dollar wMaxOfrDepth_Share wTotalBidDepth_Dollar wTotalBidDepth_Share wTotalOfrDepth_Dollar wTotalOfrDepth_Share);
+set lib.Qstats_2003 (drop= QuotedSpread_Dollar QuotedSpread_Percent TotalBidDepth_Share TotalOfrDepth_Share 
+price_range sumtime wMaxBidDepth_Dollar wMaxBidDepth_Share wMaxOfrDepth_Dollar wMaxOfrDepth_Share wTotalBidDepth_Dollar 
+ wTotalOfrDepth_Dollar );
 where DATE between '01JAN2003'd and '31Jul2003'd; 
 run;
 data Qstat2003(drop= max_midpoint min_midpoint);
@@ -75,12 +78,12 @@ proc contents data=v_mydata;
 run;
 /*Download Data*/
 data Tstat2002;
-set lib.Tstats_2002 (Keep= SYMBOL DATE HOUR EffectiveSpread_Percent_SW);
+set lib.Tstats_2002 (Keep= SYMBOL DATE HOUR EffectiveSpread_Percent_SW EffectiveSpread_Dollar_SW);
 where DATE between '02DEC2002'd and '31DEC2002'd; 
 run;
 
 data Tstat2003;
-set lib.Tstats_2003 (Keep= SYMBOL DATE HOUR EffectiveSpread_Percent_SW);
+set lib.Tstats_2003 (Keep= SYMBOL DATE HOUR EffectiveSpread_Percent_SW EffectiveSpread_Dollar_SW);
 where DATE between '01JAN2003'd and '31Jul2003'd; 
 run;
 proc print data=Tstat2003 (obs=30);
@@ -96,10 +99,15 @@ set Tstat2002;
 run;
 
 data Stats;
-merge Qstat(in=x) Tstat2002(in=y);
+merge Qstat2002(in=x) Tstat2002(in=y);
 by SYMBOL DATE hour;
 if x and y then output;
 run;
+
+data lib.stats;
+set stats; run;
+
+data stats; set lib.stats; run;
 
 /******Realized spread stats*******/
 
@@ -111,12 +119,12 @@ proc contents data=v_mydata;
 run;
 /*Download Data*/
 data rstat2002;
-set lib.rstats1_2002 (Keep= SYMBOL DATE HOUR PercentPriceImpact_LR_SW PercentRealizedSpread_LR_SW);
+set lib1.rstats1_2002 (Keep= SYMBOL DATE HOUR PercentPriceImpact_LR_SW PercentRealizedSpread_LR_SW);
 where DATE between '02DEC2002'd and '31DEC2002'd; 
 run;
 
 data rstat2003;
-set lib.rstats1_2003 (Keep= SYMBOL DATE HOUR PercentPriceImpact_LR_SW PercentRealizedSpread_LR_SW);
+set lib1.rstats1_2003 (Keep= SYMBOL DATE HOUR PercentPriceImpact_LR_SW PercentRealizedSpread_LR_SW);
 where DATE between '01JAN2003'd and '31Jul2003'd; 
 run;
 
@@ -135,23 +143,21 @@ by SYMBOL DATE hour;
 if x and y then output;
 run;
 
+
 data lib.MergedData;
 set Stats; 
 run;
 
-proc print data=Stats (obs=10);
-run;
 
 /******Create AT dummy*******/
 
 data Stats;
-set lib.MergedData (drop=number_quotes wQuotedSpread_Dollar);
+set Stats (drop=number_quotes);
 if hour=33 then delete;
 run;
 
-
 proc import out=autoquote
-datafile = "C:\Users\aidan_000\Desktop\Dissertation\Nyse listed stocks.csv" 
+datafile = "E:\Dissertation\SAS DATA from HARD\Nyse listed stocks.csv" 
 dbms=csv replace; getnames=yes; datarow=2;
 run;
 proc sort data=autoquote;
@@ -176,32 +182,33 @@ run;
 proc print data = work.autodates(obs=30);
 run; 
 
-data work.ATdummy;
-set work.autodates;
+data ATdummy (drop=Autoquote);attrib symbol informat=$6. ;
+set autodates ;
 if Autoquote=. then autodummy=0; else
 if Autoquote>DATE then autodummy=0; else autodummy=1;
+if autoquote=. then Nyse=0;else Nyse=1;
 run;
 
 proc print data = work.ATdummy(obs=70);
 run; 
 
-data ATdummy; attrib symbol informat=$6. ;
-set lib.ATdummy (drop=Autoquote);
-run;
 proc means data=ATdummy NMISS N; run;
 
 data ATdummy;
 set ATdummy;
 if nmiss(of _numeric_) > 0 then delete;
 run;
+
+data lib.ATdummy;set ATdummy;run;
+
+data ATdummy;set lib.ATdummy;run;
+
+
 /******Filter Data*******/
 PROC FREQ DATA=ATdummy;
 format symbol $6.;
   TABLES SYMBOL;
 RUN;
-
-proc contents data=ATdummy;
-run;
 
 proc means data=ATdummy noprint nway;
 format symbol $6.;
@@ -222,12 +229,8 @@ run;
 
 proc print data=filter (obs=30);
 run;
-proc sort data=filter;
-by Symbol;
-run;
-proc sort data=ATdummy;
-by Symbol;
-run;
+proc sort data=filter;by Symbol;run;
+proc sort data=ATdummy;by Symbol;run;
 data FilteredData ;
 merge filter(in=x)   ATdummy(in=y);
 by SYMBOL;
@@ -242,17 +245,13 @@ run;
 proc print data=filtereddata (obs=30);
 run;
 
+data filtereddata (drop=wTotalOfrDepth_Share wTotalBidDepth_Share );
+set filtereddata;
+Qdepth=(wTotalOfrDepth_Share +wTotalBidDepth_Share )/2;
+run;
 data lib.filtereddata;
 set filtereddata;
 run;
-
-proc univariate data=filtereddata;
-var wQuotedSpread_Percent 
-EffectiveSpread_Percent_SW 
-PercentRealizedSpread_LR_SW 
-PercentPriceImpact_LR_SW;
-run;
-
 
 data filtereddata;
 set lib.filtereddata;
@@ -335,44 +334,100 @@ data &dsetout;
   
 %mend winsor;
 
-%winsor(dsetin=filtereddata, dsetout=Filtereddata1, byvar=none, vars=EffectiveSpread_Percent_SW 
-PercentPriceImpact_LR_SW PercentRealizedSpread_LR_SW realized_variance 
-, type=winsor, pctl=1 99);
+%winsor(dsetin=filtereddata, dsetout=Filtereddata1, byvar=none, vars=EffectiveSpread_Percent_SW wQuotedSpread_Percent
+realized_variance EffectiveSpread_Dollar_SW wQuotedSpread_Dollar
+Qdepth, type=winsor, pctl=1 99);
+
+
+PROC PRINT DATA=FILTEREDDATA1 (OBS=30);RUN;
 
 proc univariate data=filtereddata1;
 var wQuotedSpread_Percent 
 EffectiveSpread_Percent_SW 
-PercentRealizedSpread_LR_SW 
-PercentPriceImpact_LR_SW;
+EffectiveSpread_Dollar_SW 
+wQuotedSpread_Dollar
+Qdepth;
 run;
 
-data lib.filtereddata1;
-set filtereddata1;
+
+proc univariate data=filtereddata1(where=(date between '02DEC2002'd and '29jan2003'd));
+by NYSE;
+var wQuotedSpread_Percent 
+EffectiveSpread_Percent_SW EffectiveSpread_Dollar_SW wQuotedSpread_Dollar
+Qdepth;
 run;
 
-proc means data=filtereddata1 noprint nway;
+proc univariate data=filtereddata1(where=(date between '30jan2003'd and '27may2003'd));
+by NYSE;
+var wQuotedSpread_Percent 
+EffectiveSpread_Percent_SW EffectiveSpread_Dollar_SW wQuotedSpread_Dollar
+Qdepth;
+run;
+
+proc univariate data=filtereddata1(where=(date between '28may2003'd and '31JUL2003'd));
+by NYSE;
+var wQuotedSpread_Percent 
+EffectiveSpread_Percent_SW EffectiveSpread_Dollar_SW wQuotedSpread_Dollar
+Qdepth;
+run;
+
+
+proc sort data=filtereddata1;
+by date;
+run;
+
+
+proc univariate data=filtereddata1(where=(date between '02DEC2002'd and '29jan2003'd));
+var wQuotedSpread_Percent 
+EffectiveSpread_Percent_SW EffectiveSpread_Dollar_SW wQuotedSpread_Dollar
+Qdepth;
+run;
+
+proc univariate data=filtereddata1(where=(date between '30jan2003'd and '27may2003'd));
+var wQuotedSpread_Percent 
+EffectiveSpread_Percent_SW EffectiveSpread_Dollar_SW wQuotedSpread_Dollar
+Qdepth;
+run;
+
+proc univariate data=filtereddata1(where=(date between '28may2003'd and '31JUL2003'd));
+var wQuotedSpread_Percent 
+EffectiveSpread_Percent_SW EffectiveSpread_Dollar_SW wQuotedSpread_Dollar
+Qdepth;
+run;
+
+proc univariate data=filtereddata1;
+by NYSE;
+var wQuotedSpread_Percent 
+EffectiveSpread_Percent_SW EffectiveSpread_Dollar_SW wQuotedSpread_Dollar
+Qdepth;
+run;
+
+
+proc means data=filtereddata noprint nway;
 class Date hour;
 var wQuotedSpread_Percent 
 EffectiveSpread_Percent_SW 
-PercentRealizedSpread_LR_SW 
-PercentPriceImpact_LR_SW ;
+EffectiveSpread_Dollar_SW 
+wQuotedSpread_Dollar
+Qdepth;
 output out=market sum(wQuotedSpread_Percent)= 
 sum(EffectiveSpread_Percent_SW)= 
-sum(PercentRealizedSpread_LR_SW)= 
-sum(PercentPriceImpact_LR_SW)=/autoname;
+sum(EffectiveSpread_Dollar_SW)=
+sum(wQuotedSpread_Dollar)=
+sum(Qdepth)=/autoname;
 run;
 
 proc print data=market (obs=30);
 run;
 
-proc sort data=filtereddata1;
+proc sort data=filtereddata;
 by date hour;
 run;
 
 /******Create variables for market liquidity*******/
 
 data Market1;
-merge filtereddata1   market;
+merge filtereddata   market;
 by DATE hour;
 run;
 
@@ -380,108 +435,66 @@ proc print data=market1 (obs=30);
 run;
 data Market2 (drop=wQuotedSpread_Percent_Sum 
 EffectiveSpread_Percent_SW_sum 
-PercentRealizedSpread_LR_S_sum 
-PercentPriceImpact_LR_SW_sum) ;
+EffectiveSpread_Dollar_SW_sum wQuotedSpread_Dollar_sum
+Qdepth_sum) ;
 set Market1;
-MwQuotedSpread_Percent=(wQuotedSpread_Percent_sum-wQuotedSpread_Percent)/(_Freq_-1); 
-MEffectiveSpread_Percent_SW=(EffectiveSpread_Percent_SW_Sum-EffectiveSpread_Percent_SW)/ (_Freq_-1);
-MPercentRealizedSpread_LR_S=(PercentRealizedSpread_LR_S_sum-PercentRealizedSpread_LR_SW)/ (_Freq_-1);
-MPercentPriceImpact_LR_SW=(PercentPriceImpact_LR_SW_sum-PercentPriceImpact_LR_SW)/ (_Freq_-1);
+MQSpread=(wQuotedSpread_Percent_sum-wQuotedSpread_Percent)/(_Freq_-1); 
+MESpread=(EffectiveSpread_Percent_SW_Sum-EffectiveSpread_Percent_SW)/ (_Freq_-1);
+MESpread_USD=(EffectiveSpread_Dollar_SW_sum-EffectiveSpread_Dollar_SW)/(_Freq_-1);
+MQSpread_USD=(wQuotedSpread_Dollar_sum-wQuotedSpread_Dollar)/(_Freq_-1);
+MQdepth=(Qdepth_sum-Qdepth)/(_Freq_-1);
 run;
 proc print data=market2 (obs=30);
 run;
 
-data lib.Market2;
+data lib.Market2v1;
 set Market2;
 run;
 
 DATA rename (DROP=
 wQuotedSpread_Percent 
 EffectiveSpread_Percent_SW 
-PercentRealizedSpread_LR_SW 
-PercentPriceImpact_LR_SW
-mwQuotedSpread_Percent 
-mEffectiveSpread_Percent_SW 
-mPercentRealizedSpread_LR_S 
-mPercentPriceImpact_LR_SW
+EffectiveSpread_Dollar_SW 
+wQuotedSpread_Dollar
 realized_variance);
 SET Market2;
 QSpread = wQuotedSpread_Percent;
 ESpread = EffectiveSpread_Percent_SW;
-RSpread = PercentRealizedSpread_LR_SW;
-PISpread = PercentPriceImpact_LR_SW;
-MQSpread = MwQuotedSpread_Percent;
-MESpread = MEffectiveSpread_Percent_SW;
-MRSpread = MPercentRealizedSpread_LR_S;
-MPISpread = MPercentPriceImpact_LR_SW;
+QSpread_USD = wQuotedSpread_Dollar;
+ESpread_USD = EffectiveSpread_Dollar_SW;
+Qdepth=wQuotedSpread_Dollar;
 Var = realized_variance;
 RUN;
 
 /*First differencing*/
 proc sort data=rename;by symbol date hour;run;
- DATA diff (drop=DIF_qspread DIF_rspread DIF_espread DIF_pispread DIF_mqspread DIF_mrspread
-DIF_mespread DIF_mpispread Dif_var LAG_Midpoint averagemidoint);
+DATA diff (drop=DIF_qspread DIF_espread DIF_mqspread DIF_mespread Dif_Qdepth dif_mqdepth 
+DIF_qspread_USD DIF_espread_USD DIF_mqspread_USD DIF_mespread_USD Dif_var LAG_Midpoint averagemidoint);
 SET rename;
 BY Symbol Date hour;
-DIF_qspread = DIF(qspread);
-IF FIRST.symbol THEN DO;
-DIF_qspread = .;
-END;
-qspread = DIF_qspread;
+DIF_qspread = DIF(qspread);IF FIRST.symbol THEN DO; DIF_qspread = .; END; qspread = DIF_qspread;
 
-DIF_rspread = DIF(rspread);
-IF FIRST.symbol THEN DO;
-DIF_rspread = .;
-END;
-rspread = DIF_rspread;
+DIF_espread = DIF(espread);IF FIRST.symbol THEN DO;DIF_espread = .;END;espread = DIF_espread;
 
-DIF_espread = DIF(espread);
-IF FIRST.symbol THEN DO;
-DIF_espread = .;
-END;
-espread = DIF_espread;
+DIF_qspread_USD = DIF(qspread_USD);IF FIRST.symbol THEN DO;DIF_qspread_USD = .;END;qspread_USD = DIF_qspread_USD;
 
-DIF_pispread = DIF(pispread);
-IF FIRST.symbol THEN DO;
-DIF_pispread = .;
-END;
-pispread =DIF_pispread;
+DIF_espread_USD = DIF(espread_USD);IF FIRST.symbol THEN DO;DIF_espread_USD = .;END;espread_USD = DIF_espread_USD;
 
-DIF_mqspread = DIF(mqspread);
-IF FIRST.symbol THEN DO;
-DIF_mqspread = .;
-END;
-mqspread = DIF_mqspread;
+DIF_qdepth = DIF(qdepth);IF FIRST.symbol THEN DO;DIF_qdepth = .;END;qdepth = DIF_qdepth;
 
-DIF_mrspread = DIF(mrspread);
-IF FIRST.symbol THEN DO;
-DIF_mrspread = .;
-END;
-mrspread = DIF_mrspread;
+DIF_mqdepth = DIF(mqdepth);IF FIRST.symbol THEN DO;DIF_mqdepth = .;END;mqdepth = DIF_mqdepth;
 
-DIF_mespread = DIF(mespread);
-IF FIRST.symbol THEN DO;
-DIF_mespread = .;
-END;
-mespread = DIF_mespread;
+DIF_mqspread = DIF(mqspread);IF FIRST.symbol THEN DO;DIF_mqspread = .;END;mqspread = DIF_mqspread;
 
-DIF_mpispread = DIF(mpispread);
-IF FIRST.symbol THEN DO;
-DIF_mpispread = .;
-END;
-mpispread = DIF_mpispread;
+DIF_mespread = DIF(mespread);IF FIRST.symbol THEN DO;DIF_mespread = .;END;mespread = DIF_mespread;
 
-LAG_Midpoint = LAG(averagemidoint);
-IF FIRST.symbol THEN DO;
-LAG_Midpoint = .;
-END;
-Logret = log(averagemidoint/lag_Midpoint);
+DIF_mqspread_USD = DIF(mqspread_USD);IF FIRST.symbol THEN DO;DIF_mqspread_USD = .;END;mqspread_USD = DIF_mqspread_USD;
 
-DIF_var = DIF(var);
-IF FIRST.symbol THEN DO;
-DIF_var = .;
-END;
-var = DIF_var;
+DIF_mespread_USD = DIF(mespread_USD);IF FIRST.symbol THEN DO;DIF_mespread_USD = .;END;mespread_USD = DIF_mespread_USD;
+
+LAG_Midpoint = LAG(averagemidoint);IF FIRST.symbol THEN DO;LAG_Midpoint = .;END;Logret = log(averagemidoint/lag_Midpoint);
+
+DIF_var = DIF(var);IF FIRST.symbol THEN DO;DIF_var = .;END;var = DIF_var;
 
 RUN;
 
@@ -499,32 +512,39 @@ proc means data=diff noprint nway;
 class symbol hour;
 var QSpread 
 ESpread 
-RSpread 
-PISpread 
+QSpread_USD 
+ESpread_USD
+QDepth
 MQSpread 
 MESpread 
-MRSpread 
-MPISpread 
+MQSpread_USD 
+MESpread_USD
+MQDepth 
 Var 
 Logret ;
-output out=stats mean(qspread)= 
+output out=stats 
+mean(qspread)= 
 mean(ESpread)= 
-mean(RSpread )= 
-mean(PISpread)=
+mean(qspread_USD)=
+mean(qdepth)= 
+mean(ESpread_USD)= 
 mean(MQSpread )=
 mean(MESpread )=
-mean(MRSpread )=
-mean(MPISpread)= 
+mean(MQSpread_USD )=
+mean(MESpread_USD )=
+mean(MQDepth)=
 mean(Var)=
 mean(Logret)=
 std(QSpread)= 
 std(ESpread)= 
-std(RSpread)= 
-std(PISpread)= 
+std(QSpread_USD)= 
+std(ESpread_USD)= 
+std(QDEPTH)= 
+std(MQDEPTH)= 
 std(MQSpread)= 
 std(MESpread)= 
-std(MRSpread)= 
-std(MPISpread)= 
+std(MQSpread_USD)= 
+std(MESpread_USD)= 
 std(Var )=
 std(Logret )= 
 /autoname;
@@ -547,75 +567,80 @@ proc print data=standard(obs=30);run;
 proc contents data=standard;run;
 data standard1 (drop=QSpread_mean 
 ESpread_mean 
-RSpread_Mean 
-PISPREAD_mean
+QSpread_USD_mean 
+ESpread_USD_mean 
 mQSpread_mean 
 MESpread_mean 
-MRSpread_Mean 
-MPISPREAD_mean
+mQSpread_USD_mean 
+MESpread_USD_mean
+QDEPTH_Mean
+MQDEPTH_Mean
 Logret_Mean
 Var_Mean
 Var_Stddev
 Logret_Stddev
 QSpread_Stddev 
 ESpread_Stddev 
-RSpread_Stddev 
-PISPREAD_Stddev
+QSpread_USD_Stddev 
+ESpread_USD_Stddev 
+QDEPTH_Stddev 
+MQDEPTH_Stddev 
 MQSpread_Stddev 
 MESpread_Stddev 
-MRSpread_Stddev 
-MPISPREAD_Stddev
+MQSpread_USD_Stddev 
+MESpread_USD_Stddev 
 _TYPE_ _FREQ_);
 set standard;
 QSpread=(QSpread-QSpread_mean)/QSpread_Stddev;
 ESpread=(ESpread-ESpread_mean)/ESpread_Stddev;
-RSpread=(RSpread-RSpread_Mean)/RSpread_Stddev; 
-PISPREAD=(PISPREAD-PISPREAD_mean)/PISPREAD_Stddev;
+
+QSpread_USD=(QSpread_USD-QSpread_USD_mean)/QSpread_USD_Stddev;
+ESpread_USD=(ESpread_USD-ESpread_USD_mean)/ESpread_USD_Stddev;
+
 mQSpread=(mQSpread-mQSpread_mean)/mQSpread_Stddev; 
 MESpread=(MESpread-MESpread_mean)/MESpread_Stddev; 
-MRSpread=(MRSpread-MRSpread_Mean)/MRSpread_Stddev; 
-MPISPREAD=(MPISPREAD-MPISPREAD_mean)/MPISPREAD_Stddev;
+
+mQSpread_USD=(mQSpread_USD-mQSpread_USD_mean)/mQSpread_USD_Stddev; 
+MESpread_USD=(MESpread_USD-MESpread_USD_mean)/MESpread_USD_Stddev; 
+
+QDEPTH=(QDEPTH-QDEPTH_mean)/QDEPTH_stddev;
+MQDEPTH=(MQDEPTH-MQDEPTH_mean)/MQDEPTH_Stddev; 
+
 Logret=(Logret-Logret_Mean)/Logret_sTDDEV;
 Var=(Var-Var_Mean)/Var_STDDEV;
 run;
 
-proc means data=standard1 NMISS N; run;
-data standard1;
-set standard1;
-if nmiss(of _numeric_) > 0 then delete;
-run;
+proc means data=standard2 NMISS N; run;
 
-
-
-
-%winsor(dsetin=standard1, dsetout=standard2, byvar=none, vars=QSpread 
-ESpread RSpread PISpread MQSpread MESpread MRSpread MPISpread Var 
+%winsor(dsetin=standard1, dsetout=standard2, byvar=none, vars=QSpread QDepth MQdepth
+ESpread QSpread_USD ESpread_USD MQSpread MESpread MQSpread_USD MESpread_USD Var 
 Logret , type=winsor, pctl=1 99);
 
 
-proc sort data=sTANDARD1;
+proc sort data=sTANDARD2;
 by Symbol date hour;
 run;
 
 
-data lib.Standard;
-set standard1;
+data lib.Standard2;
+set standard2;
 run;
 
 
 /******Create lagged and lead values*******/
 
 data leads;
- SET Standard1;
+ SET Standard2;
 by symbol date hour;
  if eof1=0 then
- set Standard1 (firstobs=2 keep=DATE hour autodummy Var qspread espread mqspread 
-mrspread mespread mpispread Logret  
- rename=(mqspread=leadmqspread mespread=leadmespread Logret=leadLogret)) end=eof1;
+ set Standard2 (firstobs=2 keep=DATE hour autodummy Var qspread espread qspread_USD espread_USD mqspread 
+ mespread mqspread_USD mespread_USD qdepth mqdepth Logret  
+ rename=(mqspread=leadmqspread mespread=leadmespread mqspread_USD=leadmqspread_USD mespread_USD=leadmespread_USD mqdepth=leadmqdepth Logret=leadLogret)) end=eof1;
  if last.Symbol then do;
 leadmqspread= .;
 leadmespread= .;
 leadLogret= .;
+leadmqspread_USD= .; leadmespread_USD= .; leadmqdepth= .;
 end;
 run;
 proc print data=leads (obs=30);
@@ -626,17 +651,31 @@ proc sort data=leads;by symbol date hour;run;
 DATA Lags;
 SET Leads;
 by symbol date hour;
+
 LAG_mqspread = LAG(mqspread );
 IF FIRST.symbol THEN DO;
 LAG_mqspread = .;
 END;
-
 
 LAG_mespread = LAG(mespread);
 IF FIRST.symbol THEN DO;
 LAG_mespread = .;
 END;
 
+LAG_mqdepth = LAG(mqdepth);
+IF FIRST.symbol THEN DO;
+LAG_mqdepth = .;
+END;
+
+LAG_mqspread_USD = LAG(mqspread_USD );
+IF FIRST.symbol THEN DO;
+LAG_mqspread_USD = .;
+END;
+
+LAG_mespread_USD = LAG(mespread_USD);
+IF FIRST.symbol THEN DO;
+LAG_mespread_USD = .;
+END;
 
 LAG_return = LAG(Logret);
 IF FIRST.symbol THEN DO;
@@ -648,12 +687,10 @@ proc print data=lags (obs=30);
 run;
 proc means data=Lags NMISS N; run;
 
-
 data data;
 set lags;
 if nmiss(of _numeric_) > 0 then delete;
 run;
-proc means data=data NMISS N; run;
 
 data data1;
 set data;
@@ -673,6 +710,9 @@ data data1;
 set data1;
 atespread=mespread*autodummy;
 atqspread=mqspread*autodummy;
+atespread_USD=mespread_USD*autodummy;
+atqspread_USD=mqspread_USD*autodummy;
+atqdepth=qdepth*autodummy;
 run;
 
 data lib.final;
@@ -687,37 +727,27 @@ run;
 proc print data=data1 (obs=30);run;
 
 
-proc panel data=data1 outest=results;
+proc panel data=data1 outest=results1;
       id symbol tid;
       model espread=atespread mespread lag_mespread Leadmespread logret lag_return leadlogret autodummy var/ fixtwo;
    run;
 
-proc panel data=data1 outest=results;
+proc panel data=data1 outest=results2;
       id symbol tid;
       model qspread=atqspread mqspread lag_mqspread Leadmqspread logret lag_return leadlogret autodummy var/ fixtwo;
    run;
 
-/*As in Chordia*/
-proc panel data=data1 outest=results;
+   proc panel data=data1 outest=results3;
       id symbol tid;
-      model espread= mespread lag_mespread Leadmespread logret lag_return leadlogret var/ fixtwo;
+      model espread_USD=atespread_USD mespread_USD lag_mespread_USD Leadmespread_USD logret lag_return leadlogret autodummy var/ fixtwo;
    run;
 
-proc panel data=data1 outest=results;
+proc panel data=data1 outest=results4;
       id symbol tid;
-      model qspread=mqspread lag_mqspread Leadmqspread logret lag_return leadlogret var/ fixtwo;
+      model qspread_USD=atqspread_USD mqspread_USD lag_mqspread_USD Leadmqspread_USD logret lag_return leadlogret autodummy var/ fixtwo;
    run;
 
-
-
-   /*AS in Hendershott*/
-
-  proc panel data=data1 outest=results;
+proc panel data=data1 outest=results5;
       id symbol tid;
-      model espread=autodummy/ fixtwo;
-   run;
-
-proc panel data=data1 outest=results1;
-      id symbol tid;
-      model qspread=autodummy/ fixtwo;
+      model qdepth=atqdepth mqdepth lag_mqdepth Leadmqdepth logret lag_return leadlogret autodummy var/ fixtwo;
    run;
